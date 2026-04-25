@@ -19,19 +19,23 @@ NUM_WORKERS = 4
 DEFAULT_Q = 12
 
 # LUT settings
+# Dense LUT sizes are derived from each range and DEFAULT_Q:
+# size = round(max_val * 2^Q) - round(min_val * 2^Q) + 1
 # Input range for GELU LUT (in real-valued domain)
 GELU_LUT_MIN = -8.0
 GELU_LUT_MAX = 8.0
-GELU_LUT_SIZE = 65536
 
-# Input range for exp LUT (for softmax, we compute exp(-x) for x >= 0)
-EXP_LUT_MIN = 0.0
-EXP_LUT_MAX = 16.0
-EXP_LUT_SIZE = 65536
+# Input range for exp LUT (softmax shifts inputs so they are <= 0)
+EXP_LUT_MIN = -16.0
+EXP_LUT_MAX = 0.0
 
+# Reciprocal LUT range (for softmax normalization)
+RECIP_LUT_MIN = 0.01
+RECIP_LUT_MAX = 128.0
 
-# Reciprocal sqrt LUT (for LayerNorm)
-RSQRT_LUT_SIZE = 65536
+# Reciprocal sqrt LUT range (for LayerNorm)
+RSQRT_LUT_MIN = 0.001
+RSQRT_LUT_MAX = 128.0
 
 # Paths
 CHECKPOINT_DIR = "checkpoints"

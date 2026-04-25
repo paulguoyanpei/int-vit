@@ -73,14 +73,16 @@ Key settings in `config.py`:
 | `BATCH_SIZE` | 128 | Training and evaluation batch size |
 | `LR` | 1e-4 | Learning rate for fine-tuning |
 | `EPOCHS` | 10 | Number of fine-tuning epochs |
-| `Q_VALUES` | [8, 12, 16, 20, 24] | Fractional bits to sweep during evaluation |
-| `*_LUT_SIZE` | 65536 | Number of entries in each lookup table |
+| `DEFAULT_Q` | 12 | Fractional bits for fixed-point evaluation |
+| `*_LUT_MIN`, `*_LUT_MAX` | Function-specific | Dense lookup table input ranges |
 
 ## How It Works
 
 **Fixed-point representation:** A real value `v` is stored as the integer `round(v * 2^Q)`. All arithmetic (matrix multiplies, additions, residual connections) is performed on `int64` tensors using bit-shifts for rescaling.
 
-**Lookup tables** replace non-linear functions that cannot be computed with integer arithmetic:
+**Lookup tables** replace non-linear functions that cannot be computed with integer arithmetic. LUTs are dense over Q-scale fixed-point integers, so their size is determined by `round(max_val * 2^Q) - round(min_val * 2^Q) + 1` rather than a fixed `*_LUT_SIZE` setting:
 - **GELU** — precomputed over [-8, 8]
 - **Softmax** — uses an `exp()` LUT (over [-16, 0]) and a `1/x` reciprocal LUT for normalization
 - **LayerNorm** — uses a `1/sqrt(x)` LUT for variance normalization
+
+With `DEFAULT_Q = 12`, these dense tables are still practical. Higher Q values can make wide-range LUTs such as reciprocal and reciprocal-square-root very large.

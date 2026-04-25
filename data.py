@@ -27,8 +27,8 @@ def get_transforms():
 
 def get_dataloaders(batch_size=None, num_workers=None):
     """Return train and val DataLoaders for CIFAR-10."""
-    bs = batch_size or config.BATCH_SIZE
-    nw = num_workers or config.NUM_WORKERS
+    bs = config.BATCH_SIZE if batch_size is None else batch_size
+    nw = config.NUM_WORKERS if num_workers is None else num_workers
 
     train_transform, val_transform = get_transforms()
 

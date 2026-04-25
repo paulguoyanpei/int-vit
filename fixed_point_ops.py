@@ -30,77 +30,74 @@ def dequantize(x_int: torch.Tensor, Q: int) -> torch.Tensor:
 class LookupTable:
     """Precomputed lookup table for a scalar function.
 
-    Maps fixed-point integer inputs in [min_val_int, max_val_int) to
+    Maps fixed-point integer inputs in [min_val_int, max_val_int] to
     fixed-point integer outputs. Out-of-range inputs are clamped.
     """
 
-    def __init__(self, func, min_val: float, max_val: float, size: int, Q: int):
+    def __init__(self, func, min_val: float, max_val: float, Q: int):
         """
         Args:
-            func: Python callable, float -> float
+            func: Python callable, Tensor -> Tensor (or scalar float -> float)
             min_val: minimum real-valued input
             max_val: maximum real-valued input
-            size: number of entries in the table
             Q: fractional bits
         """
-        print("build table with size", size)
         self.Q = Q
         self.min_val = min_val
         self.max_val = max_val
-        self.size = size
-
-        # Precompute: evenly spaced real inputs -> quantized outputs
-        step = (max_val - min_val) / size
-        self.step = step
-
-        inputs = torch.linspace(min_val, max_val - step, size)
-        outputs = torch.tensor([func(x.item()) for x in inputs])
-        self.table = quantize(outputs, Q)  # int64 tensor of size [size]
 
         # Precompute bounds in fixed-point
         self.min_int = round(min_val * (1 << Q))
-        self.max_int = round((max_val - step) * (1 << Q))
+        self.max_int = round(max_val * (1 << Q))
+        self.size = self.max_int - self.min_int + 1
+        print("build table with size", self.size)
 
-        # For index computation: index = (x_real - min_val) / step
-        # = (x_int / 2^Q - min_val) / step
-        # We precompute scale = size / (max_val - min_val) = 1/step
-        self.index_scale = size / (max_val - min_val)
+        # Precompute every Q-scale fixed-point integer in the closed range.
+        input_ints = torch.arange(self.min_int, self.max_int + 1, dtype=torch.long)
+        inputs = input_ints.float() / (1 << Q)
+        try:
+            outputs = func(inputs)
+        except (TypeError, ValueError):
+            outputs = torch.tensor([func(x.item()) for x in inputs])
+        if not torch.is_tensor(outputs):
+            outputs = torch.tensor(outputs)
+        self.table = quantize(outputs, Q)  # int64 tensor of size [size]
+
+        # For index computation: index = x_int_clamped - min_int
+        self.offset = -self.min_int
 
     def lookup(self, x_int: torch.Tensor) -> torch.Tensor:
         """Look up fixed-point input in table, return fixed-point output."""
-        # Clamp to valid range
         x_clamped = x_int.clamp(self.min_int, self.max_int)
-        # Convert to real values for index computation (avoids int64 overflow)
-        x_real = x_clamped.float() / (1 << self.Q)
-        idx = ((x_real - self.min_val) * self.index_scale).long()
-        idx = idx.clamp(0, self.size - 1)
+        idx = x_clamped - self.min_int
         return self.table[idx]
 
 
-def build_gelu_lut(Q: int, min_val=-8.0, max_val=8.0, size=65536) -> LookupTable:
+def build_gelu_lut(Q: int, min_val=-8.0, max_val=8.0) -> LookupTable:
     """GELU lookup table."""
     def gelu_fn(x):
-        return 0.5 * x * (1.0 + math.erf(x / math.sqrt(2.0)))
-    return LookupTable(gelu_fn, min_val, max_val, size, Q)
+        return 0.5 * x * (1.0 + torch.erf(x / math.sqrt(2.0)))
+    return LookupTable(gelu_fn, min_val, max_val, Q)
 
 
-def build_exp_lut(Q: int, min_val=-16.0, max_val=0.0, size=65536) -> LookupTable:
+def build_exp_lut(Q: int, min_val=-16.0, max_val=0.0) -> LookupTable:
     """exp() lookup table. Input range is negative (for softmax stability)."""
-    return LookupTable(math.exp, min_val, max_val, size, Q)
+    return LookupTable(torch.exp, min_val, max_val, Q)
 
 
-def build_recip_lut(Q: int, min_val=0.01, max_val=512.0, size=65536) -> LookupTable:
+def build_recip_lut(Q: int, min_val=0.01, max_val=512.0) -> LookupTable:
     """1/x lookup table for softmax normalization.
 
     Range covers sums up to 512 (well above 197 tokens).
     """
-    return LookupTable(lambda x: 1.0 / x if x > 0 else 0.0, min_val, max_val, size, Q)
+    return LookupTable(lambda x: torch.where(x > 0, 1.0 / x, torch.zeros_like(x)),
+                       min_val, max_val, Q)
 
 
-def build_rsqrt_lut(Q: int, min_val=0.001, max_val=256.0, size=65536) -> LookupTable:
+def build_rsqrt_lut(Q: int, min_val=0.001, max_val=256.0) -> LookupTable:
     """1/sqrt(x) lookup table for LayerNorm."""
-    return LookupTable(lambda x: 1.0 / math.sqrt(x) if x > 0 else 0.0,
-                       min_val, max_val, size, Q)
+    return LookupTable(lambda x: torch.where(x > 0, torch.rsqrt(x), torch.zeros_like(x)),
+                       min_val, max_val, Q)
 
 
 # ---------------------------------------------------------------------------

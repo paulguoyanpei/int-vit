@@ -6,6 +6,7 @@ Non-linear functions (GELU, Softmax exp/recip, LayerNorm rsqrt) use LUTs.
 
 import torch
 import math
+import config
 from fixed_point_ops import (
     quantize, dequantize,
     FixedPointLinear, FixedPointLayerNorm, FixedPointGELU, FixedPointSoftmax,
@@ -107,10 +108,10 @@ class FixedPointViT:
 
         # Build LUTs (shared across all layers)
         print(f"Building LUTs with Q={Q}...")
-        self.gelu_lut = build_gelu_lut(Q)
-        self.exp_lut = build_exp_lut(Q)
-        self.recip_lut = build_recip_lut(Q)
-        self.rsqrt_lut = build_rsqrt_lut(Q)
+        self.gelu_lut = build_gelu_lut(Q, config.GELU_LUT_MIN, config.GELU_LUT_MAX)
+        self.exp_lut = build_exp_lut(Q, config.EXP_LUT_MIN, config.EXP_LUT_MAX)
+        self.recip_lut = build_recip_lut(Q, config.RECIP_LUT_MIN, config.RECIP_LUT_MAX)
+        self.rsqrt_lut = build_rsqrt_lut(Q, config.RSQRT_LUT_MIN, config.RSQRT_LUT_MAX)
 
         # Quantize patch embedding
         pe = fp_model.patch_embed
