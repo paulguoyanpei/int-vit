@@ -67,9 +67,9 @@ def main():
 
     # Sweep Q values
     results = {"fp32": fp32_acc}
-    for Q in config.Q_VALUES:
-        acc = evaluate_fixed_point(model, val_loader, Q, max_batches=None)
-        results[f"Q={Q}"] = acc
+    acc = evaluate_fixed_point(model, val_loader, config.DEFAULT_Q, max_batches=None)
+    # for Q in config.Q_VALUES:
+    #     results[f"Q={Q}"] = acc
 
     # Summary
     print("\n" + "=" * 50)

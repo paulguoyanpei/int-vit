@@ -16,8 +16,7 @@ WEIGHT_DECAY = 0.05
 NUM_WORKERS = 4
 
 # Fixed-point
-Q_VALUES = [8, 12, 16, 20, 24]  # fractional bits to sweep
-DEFAULT_Q = 16
+DEFAULT_Q = 12
 
 # LUT settings
 # Input range for GELU LUT (in real-valued domain)
@@ -30,9 +29,6 @@ EXP_LUT_MIN = 0.0
 EXP_LUT_MAX = 16.0
 EXP_LUT_SIZE = 65536
 
-# Reciprocal LUT (for 1/x, used in softmax normalization)
-RECIP_LUT_MIN = 1
-RECIP_LUT_MAX_BITS = 20  # max value = 2^20 in fixed-point scale
 
 # Reciprocal sqrt LUT (for LayerNorm)
 RSQRT_LUT_SIZE = 65536

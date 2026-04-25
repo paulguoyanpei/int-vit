@@ -43,6 +43,7 @@ class LookupTable:
             size: number of entries in the table
             Q: fractional bits
         """
+        print("build table with size", size)
         self.Q = Q
         self.min_val = min_val
         self.max_val = max_val
@@ -164,8 +165,8 @@ class FixedPointLayerNorm:
         # Normalize: (centered * rsqrt) >> Q
         normed = (centered * rsqrt_int) >> self.Q
 
-        # Scale and shift: (normed * gamma) >> Q + beta
-        out = (normed * self.gamma_int) >> self.Q + self.beta_int
+        # Scale and shift: ((normed * gamma) >> Q) + beta
+        out = ((normed * self.gamma_int) >> self.Q) + self.beta_int
         return out
 
 

@@ -162,19 +162,7 @@ class FixedPointViT:
         out = out + self.patch_bias_int
         return out
 
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            x: float tensor [B, 3, 224, 224] (normalized images)
-        Returns:
-            logits: float tensor [B, num_classes]
-        """
-        # Quantize input
-        x_int = quantize(x, self.Q)
-
-        # Patch embedding
-        x_int = self.patch_embed(x_int)  # [B, 196, 192]
-
+    def inf_int(self, x_int): 
         # Prepend cls token
         B = x_int.shape[0]
         cls_tokens = self.cls_token_int.expand(B, -1, -1)
@@ -196,3 +184,19 @@ class FixedPointViT:
 
         # Dequantize output
         return dequantize(logits_int, self.Q)
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: float tensor [B, 3, 224, 224] (normalized images)
+        Returns:
+            logits: float tensor [B, num_classes]
+        """
+        # Quantize input
+        x_int = quantize(x, self.Q)
+
+        # Patch embedding
+        x_int = self.patch_embed(x_int)  # [B, 196, 192]
+        
+        return self.inf_int(x_int)
+        
